@@ -32,6 +32,8 @@ const I = {
   eye: P('<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>'),
   turtle: P('<path d="M4 15c0-4 3.6-7 8-7s8 3 8 7z"/><path d="M20 13.5h1.5a1.5 1.5 0 0 0 0-3H20M6 15l-1 3M18 15l1 3M9 8.5l1.5 6.5M15 8.5 13.5 15"/>'),
   back: P('<path d="M20 12H4M10 6l-6 6 6 6"/>'),
+  joy: P('<rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7 10.5v4M5 12.5h4"/><circle cx="15.5" cy="11.5" r=".6" fill="currentColor"/><circle cx="17.5" cy="13.5" r=".6" fill="currentColor"/>'),
+  check: P('<path d="m4.5 12.5 5 5L19.5 7"/>'),
 };
 const OWL = (mood = 'happy', size = 92) => `<svg class="owl ${mood}" width="${size}" height="${size}" viewBox="0 0 120 120" aria-hidden="true">
   <ellipse cx="60" cy="112" rx="34" ry="5" fill="rgb(0 0 0 / .12)"/>
@@ -52,12 +54,18 @@ const SHELVES = [
   { k: 'C', name: 'رفّ الأبطال', sub: 'المستوى الثالث', icon: '🏔️', list: D.L.C || [] },
   { k: 'F', name: 'قصص العائلات', sub: 'كلمات حسب الموضوع', icon: '👨‍👩‍👧', list: D.F || [] },
 ].filter(s => s.list.length);
+/* grammar lessons from «قواعد» become a shelf of their own */
+const GD = window.GD || null;
+const GL = GD ? ['A', 'B', 'C'].flatMap(k => (GD.order[k] || []).map(id => GD.L.find(l => l.id === id)).filter(Boolean)) : [];
+GL.forEach((l, ix) => { l.ix = ix; l.sk = 'G'; });
+if (GL.length) SHELVES.push({ k: 'G', name: 'رفّ القواعد', sub: 'قواعد ونطق · ٣ مستويات', icon: '🧩', gram: true, list: GL });
+const LBY = new Map(GL.map(l => [l.id, l]));
 const SBY = Object.fromEntries(SHELVES.map(s => [s.k, s]));
 const PRON = new Map();
 Object.values(D.wl || {}).forEach(l => l.forEach(r => { if (!PRON.has(r[0])) PRON.set(r[0], r[1]); }));
 (D.fam || []).forEach(f => f.w.forEach(r => { if (!PRON.has(r[0])) PRON.set(r[0], r[1]); }));
 const STORY = new Map();
-SHELVES.forEach(sh => sh.list.forEach((s, ix) => { s.sk = sh.k; s.ix = ix; STORY.set(s.id, s); }));
+SHELVES.filter(sh => !sh.gram).forEach(sh => sh.list.forEach((s, ix) => { s.sk = sh.k; s.ix = ix; STORY.set(s.id, s); }));
 const emoOf = w => EMO[w] || EMO[String(w).toLowerCase()] || '';
 function vocab(s) {
   if (s._v) return s._v; const seen = new Set();
@@ -144,7 +152,7 @@ function flyStar(from) { if (reduce) return; const r = from.getBoundingClientRec
 
 /* ---------- shell ---------- */
 let TAB = 'lib';
-const TABS = [['lib', 'المكتبة', I.shelf], ['words', 'كلماتي', I.box], ['album', 'ملصقاتي', I.sticker]];
+const TABS = [['lib', 'المكتبة', I.shelf], ['play', 'ملعب بوبو', I.joy], ['words', 'كلماتي', I.box], ['album', 'ملصقاتي', I.sticker]];
 function shell(inner) {
   document.body.classList.toggle('kid', !!shelf().kid);
   app.innerHTML = `<header class="top"><div class="in"><span class="brand">${OWL('happy', 44)}<b>لُغتي</b></span><span class="grow"></span>
@@ -153,20 +161,22 @@ function shell(inner) {
     <nav class="tabs"><div class="in">${TABS.map(([k, n, ic]) => `<button class="tab" type="button" data-tab="${k}" ${TAB === k ? 'aria-current="page"' : ''}><span class="ti">${ic}</span>${n}</button>`).join('')}</div></nav>`;
   $$('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; render(); scrollTo(0, 0); });
 }
-function render() { if (!G.shelf) return welcome(); ({ lib: viewLib, words: viewWords, album: viewAlbum }[TAB] || viewLib)(); }
+function render() { if (!G.shelf) return welcome(); ({ lib: viewLib, play: viewPlay, words: viewWords, album: viewAlbum }[TAB] || viewLib)(); }
 function welcome() {
   document.body.classList.add('kid');
   app.innerHTML = `<main class="wrap" style="padding-top:22px"><section class="hello">${OWL('happy', 130)}<div class="bubble">أهلاً! أنا <b>بوبو</b> 🦉<br>عندي مكتبة مليانة قصص بالإنجليزي. أي رفّ بدك نفتح؟</div></section>
-    <section class="shelves">${SHELVES.map((s, k) => `<button class="shelfbtn c${k}" type="button" data-s="${s.k}"><span class="wi">${s.icon}</span><span class="grow"><b>${s.name}</b><small>${s.sub} · ${AR(s.list.length)} قصة</small></span><span class="go">←</span></button>`).join('')}</section></main>`;
+    <section class="shelves">${SHELVES.map((s, k) => `<button class="shelfbtn c${k}" type="button" data-s="${s.k}"><span class="wi">${s.icon}</span><span class="grow"><b>${s.name}</b><small>${s.sub} · ${AR(s.list.length)} ${s.gram ? 'درس' : 'قصة'}</small></span><span class="go">←</span></button>`).join('')}</section></main>`;
   $$('[data-s]').forEach(b => b.onclick = () => { G.shelf = b.dataset.s; save(); SFX.win(); render(); });
 }
 
 /* ---------- library ---------- */
 function nextStory(sh) { return sh.list.find(s => !G.read[s.id]?.done) || sh.list[0]; }
+const shelfNav = sh => `<section class="shelfnav">${SHELVES.map((s, k) => `<button class="sn c${k}" type="button" data-s="${s.k}" aria-pressed="${s.k === sh.k}">${s.icon} ${s.name}</button>`).join('')}</section>`;
 function viewLib() {
+  if (shelf().gram) return viewGramLib();
   const sh = shelf(), cont = G.last && STORY.get(G.last) && !G.read[G.last]?.done ? STORY.get(G.last) : null, nx = nextStory(sh);
   const feat = cont || nx, fp = pages(feat).length, rs = G.read[feat.id];
-  shell(`<section class="shelfnav">${SHELVES.map((s, k) => `<button class="sn c${k}" type="button" data-s="${s.k}" aria-pressed="${s.k === sh.k}">${s.icon} ${s.name}</button>`).join('')}</section>
+  shell(`${shelfNav(sh)}
     <section class="feature c${feat.ix % 5}">
       ${sh.kid ? `<div class="fowl">${OWL('happy', 74)}<div class="bubble sm">${cont ? 'نكمّل القصة؟ 📖' : 'جاهز لقصة جديدة؟ ✨'}</div></div>` : ''}
       <div class="fbook"><div class="fcover"><span>${cover(feat)}</span></div><div class="grow"><div class="k">${cont ? 'كمّل القراءة' : 'القصة الجاية'} · ${AR(feat.ix + 1)}</div><h1>${esc(noTash(feat.ar))}</h1><div class="en">${esc(feat.en)}</div>
@@ -190,7 +200,7 @@ function openBook(s, from) {
   drawPage();
   [...new Set(vocab(s).map(v => AU.e[enKey(v.w)]).filter(Boolean).map(id => 'e' + id[0]))].forEach(loadPack);
 }
-function closeBook() { stopStory(); sayTok++; try { wa.pause(); } catch (e) { } $$('.reader,.pop,.scrim').forEach(e => e.remove()); document.body.style.overflow = ''; R = null; render(); }
+function closeBook() { stopStory(); try { GA.pause(); } catch (e) { } sayTok++; try { wa.pause(); } catch (e) { } $$('.reader,.pop,.scrim').forEach(e => e.remove()); document.body.style.overflow = ''; R = null; render(); }
 function sceneHtml(pg) {
   const sc = SCENES[(R.s.ix + pg.pi) % SCENES.length], spots = [[18, 30], [62, 18], [40, 52], [76, 56]];
   const pics = pg.pics.length ? pg.pics : [cover(R.s)];
@@ -389,6 +399,266 @@ function viewAlbum() {
     </section>`);
   $('#tr').onclick = () => { G.tr = !G.tr; save(); render(); };
   $('#sfx').onclick = () => { G.sfx = !G.sfx; save(); render(); };
+}
+
+/* ---------- grammar picture-books ---------- */
+G.gram = G.gram || {};
+const rich = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b class="hl">$1</b>');
+const isLatin = s => /^[\x00-\x7F’‘“”—–…]*$/.test(String(s).replace(/\*\*/g, ''));
+const LVL = { A: 'المستوى ١', B: 'المستوى ٢', C: 'المستوى ٣' };
+const GA = new Audio(); GA.preload = 'auto'; let gaRaf = 0, gaSrc = '';
+function auKey(l, text) { if (!l.au) return null; const t = String(text).replace(/\*\*/g, ''); if (l.au[t]) return t; const n = norm(t); return Object.keys(l.au).find(k => norm(k) === n) || null; }
+function playG(l, text, onWord) {
+  stopStory(); sayTok++; try { wa.pause(); } catch (e) { } cancelAnimationFrame(gaRaf);
+  const k = auKey(l, text); if (!k) return tts(String(text).replace(/\*\*/g, ''), .8);
+  const [a, b, wt] = l.au[k], src = 'g/' + l.id + '.webm'; if (gaSrc !== src) { GA.src = src; gaSrc = src; }
+  return new Promise(res => {
+    const go = () => { try { GA.currentTime = a; } catch (e) { } GA.playbackRate = G.srate || 1; GA.play().catch(res); let last = -1;
+      const f = () => { const t = GA.currentTime; if (t >= b || GA.paused) { GA.pause(); onWord && onWord(-1); return res(); }
+        if (onWord && wt) { let idx = -1; for (let j = 0; j < wt.length; j++) { if (wt[j] <= t + .03) idx = j; else break; } if (idx !== last) { last = idx; onWord(idx); } }
+        gaRaf = requestAnimationFrame(f); };
+      gaRaf = requestAnimationFrame(f); };
+    if (GA.readyState >= 1) go(); else { GA.addEventListener('loadedmetadata', go, { once: true }); GA.load(); }
+    setTimeout(res, 12000);
+  });
+}
+function gPages(l) {
+  if (l._gp) return l._gp; const pg = [];
+  pg.push({ t: 'intro' });
+  let title = null, buf = [];
+  const flush = () => { if (buf.length) pg.push({ t: 'talk', title, blocks: buf }); buf = []; };
+  l.exp.forEach(([k, x]) => { if (k === 'h') { flush(); title = x; return; } if (k === 'li') { buf.push([k, x]); return; } if (buf.length && buf[buf.length - 1][0] !== 'li') flush(); else if (buf.length) flush(); buf.push([k, x]); });
+  flush();
+  if (l.table && l.table.length) pg.push({ t: 'table' });
+  (l.rule || []).forEach(r => pg.push({ t: 'sounds', r }));
+  (l.ex || []).slice(0, 6).forEach((e, k) => pg.push({ t: 'ex', e, emo: l.emo?.[k] || l.node || '📘' }));
+  (l.tip || []).slice(0, 3).forEach(tp => pg.push({ t: 'oops', tp }));
+  return l._gp = pg;
+}
+function viewGramLib() {
+  const sh = SBY.G, nx = GL.find(l => !G.gram[l.id]) || GL[0];
+  shell(`${shelfNav(sh)}
+    <section class="feature c${nx.ix % 5}">
+      <div class="fowl">${OWL('happy', 74)}<div class="bubble sm">تعال أعلّمك قاعدة جديدة! 🧩</div></div>
+      <div class="fbook"><div class="fcover"><span>${esc(nx.node || '📘')}</span></div><div class="grow"><div class="k">${LVL[nx.lv]} · ${nx.k === 'p' ? 'نطق' : 'قواعد'}</div><h1>${esc(nx.ar)}</h1><div class="en">${esc(nx.en)}</div></div></div>
+      <button class="btn big" type="button" data-gopen="${nx.id}">${I.play} افتح الدرس</button>
+    </section>
+    ${['A', 'B', 'C'].map(lv => { const ls = GL.filter(l => l.lv === lv); if (!ls.length) return ''; return `<section class="sec"><div class="sec-h"><h2>🧩 ${LVL[lv]}</h2><span class="muted num">${AR(ls.filter(l => G.gram[l.id]).length)}/${AR(ls.length)}</span></div>
+      <div class="books">${ls.map(l => { const r = G.gram[l.id]; return `<button class="book c${l.ix % 5} ${r ? 'done' : ''} ${l === nx ? 'nx' : ''}" type="button" data-gopen="${l.id}"><span class="be">${esc(l.node || '📘')}</span><span class="bt">${esc(l.ar)}</span>${r ? `<span class="ribbon">${'★'.repeat(r.best || 1)}</span>` : l === nx ? '<span class="ribbon new">جديد</span>' : ''}${l.k === 'p' ? '<span class="tag">🔊 نطق</span>' : ''}</button>`; }).join('')}</div></section>`; }).join('')}`);
+  $$('[data-s]').forEach(b => b.onclick = () => { G.shelf = b.dataset.s; save(); SFX.page(); render(); });
+  $$('[data-gopen]').forEach(b => b.onclick = () => openGram(LBY.get(b.dataset.gopen)));
+}
+function openGram(l) {
+  touchDay(); R = { g: l, pg: gPages(l), p: 0, q: 0, qok: 0, kid: true, playing: false };
+  document.body.style.overflow = 'hidden';
+  let d = $('.reader'); if (!d) { d = document.createElement('div'); d.className = 'reader'; document.body.appendChild(d); }
+  drawG();
+}
+function talkHtml(blocks) {
+  let h = '', ul = false;
+  blocks.forEach(([k, x]) => { if (k === 'li') { if (!ul) { h += '<ul>'; ul = true; } h += `<li>${rich(x)}</li>`; return; } if (ul) { h += '</ul>'; ul = false; } h += k === 'note' ? `<div class="note">💡 ${rich(x)}</div>` : `<p>${rich(x)}</p>`; });
+  return h + (ul ? '</ul>' : '');
+}
+function drawG() {
+  const { g: l, pg: all } = R, pg = all[R.p], d = $('.reader');
+  d.className = 'reader kid c' + (l.ix % 5);
+  let body = '', audio = null;
+  if (pg.t === 'intro') body = `<div class="scene ${['sky', 'meadow', 'sunset', 'sea'][l.ix % 4]}"><span class="sun"></span><span class="cloud c1"></span><span class="cloud c2"></span><span class="ground"></span><span class="actor" style="right:38%;top:22%;font-size:clamp(70px,22vw,110px)">${esc(l.node || '📘')}</span><span class="peek">${OWL('wow', 70)}</span></div>
+    <div class="text" style="text-align:center"><span class="lvtag">${LVL[l.lv]} · ${l.k === 'p' ? 'درس نطق 🔊' : 'درس قواعد 🧩'}</span><h1 style="font-size:28px">${esc(l.ar)}</h1><div class="en muted" style="font-size:17px">${esc(l.en)}</div></div>`;
+  if (pg.t === 'talk') body = `<div class="talk">${OWL('happy', 86)}<div class="tbub">${pg.title ? `<h2>${rich(pg.title)}</h2>` : ''}${talkHtml(pg.blocks)}</div></div>`;
+  if (pg.t === 'table') body = `<div class="talk">${OWL('happy', 70)}<div class="tbub"><h2>الجدول 📋</h2><div class="tbl"><table>${l.table.map((r, k) => `<tr>${r.map(c => k ? `<td dir="auto">${rich(c)}</td>` : `<th dir="auto">${rich(c)}</th>`).join('')}</tr>`).join('')}</table></div></div></div>`;
+  if (pg.t === 'sounds') body = `<div class="talk">${OWL('happy', 70)}<div class="tbub"><h2>اسمع 🔊</h2><p>${rich(pg.r[0])}</p><div class="chipsw">${pg.r[1].map(w => `<button class="wchip en" type="button" data-gw="${esc(w)}">${emoOf(w) ? emoOf(w) + ' ' : ''}${esc(w)}</button>`).join('')}</div></div></div>`;
+  if (pg.t === 'ex') { audio = pg.e[0]; body = `<div class="scene ${['meadow', 'sky', 'sea', 'sunset', 'night'][R.p % 5]}"><span class="sun"></span><span class="cloud c1"></span><span class="ground"></span><span class="actor" style="right:36%;top:20%;font-size:clamp(70px,22vw,110px)">${esc(pg.emo)}</span></div>
+    <div class="text"><div class="mini">مثال 👇</div><p class="en sent" id="sent">${String(pg.e[0]).replace(/\*\*/g, '').split(/\s+/).map((t, k) => `<span class="t" data-k="${k}">${esc(t)}</span>`).join(' ')}</p><p class="ar tr">${rich(pg.e[1])}</p></div>`; }
+  if (pg.t === 'oops') { audio = pg.tp[1]; body = `<div class="talk">${OWL('wow', 80)}<div class="tbub"><h2>بوبو لقط غلطة! 🕵️</h2>
+    <div class="oops no en">✗ ${esc(pg.tp[0])}</div><div class="oops ok en">✓ ${esc(pg.tp[1])}</div><p class="muted">${rich(pg.tp[2])}</p></div></div>`; }
+  d.innerHTML = `<div class="rin">
+    <div class="rtop"><button class="x" type="button" id="close" aria-label="سكّر">${I.close}</button>
+      <div class="grow" style="min-width:0"><b class="rtitle">${esc(l.ar)}</b><div class="pbar"><i style="width:${Math.round(100 * (R.p + 1) / (all.length + 1))}%"></i></div></div>
+      <button class="btn sm" type="button" id="tochal">🎮 للتحدي</button></div>
+    <div class="pagewrap" id="pw">${body}</div></div>
+  <div class="rdock"><div class="in">
+    <button class="rbtn" type="button" id="prev" ${R.p === 0 ? 'disabled' : ''} aria-label="السابقة">${I.prev}</button>
+    <button class="rbtn main" type="button" id="playp" ${audio ? '' : 'disabled'} aria-label="اسمع">${I.spk}</button>
+    <button class="rbtn ${R.p === all.length - 1 ? 'on' : ''}" type="button" id="next" aria-label="التالية">${R.p === all.length - 1 ? '🎮' : I.next}</button>
+  </div></div>`;
+  $('#close').onclick = closeBook;
+  $('#tochal').onclick = () => gChallenge();
+  $('#prev').onclick = () => { if (R.p > 0) { R.p--; SFX.page(); drawG(); } };
+  $('#next').onclick = () => { if (R.p < all.length - 1) { R.p++; SFX.page(); drawG(); } else gChallenge(); };
+  const pl = $('#playp'); if (audio) { pl.onclick = () => sayEx(l, audio); if (pg.t === 'ex') setTimeout(() => R && R.pg?.[R.p] === pg && sayEx(l, audio), 350); }
+  $$('[data-gw]').forEach(b => b.onclick = () => { b.classList.remove('boing'); void b.offsetWidth; b.classList.add('boing'); playG(l, b.dataset.gw); });
+  $$('.actor').forEach(a => a.onclick = () => { a.classList.remove('boing'); void a.offsetWidth; a.classList.add('boing'); SFX.pop(); if (audio) sayEx(l, audio); });
+  swipe($('#pw'));
+}
+function sayEx(l, text) { const els = $$('#sent .t'); return playG(l, text, idx => els.forEach((e, k) => { e.classList.toggle('on', k === idx); e.classList.toggle('read', idx >= 0 && k < idx); })); }
+/* ---------- grammar challenge: one question per screen, kid style ---------- */
+function gQuestions(l) {
+  const out = [], per = {};
+  if (l.k === 'p') {
+    (l.q || []).forEach(q => out.push({ q }));
+    if (l.cls) shuffle(l.cls.items).slice(0, 4).forEach(it => out.push({ cls: it }));
+    shuffle(l.sil || []).slice(0, 2).forEach(it => out.push({ sil: it }));
+    shuffle(l.stress || []).slice(0, 2).forEach(it => out.push({ stress: it }));
+    return shuffle(out).slice(0, 8);
+  }
+  const RANK = { rule: 0, mc: 1, pick: 1, gap: 2, fix: 2, ord: 3, tr: 3 };
+  shuffle(l.q || []).filter(q => { per[q[0]] = (per[q[0]] || 0) + 1; return per[q[0]] <= 2; }).slice(0, 7).sort((a, b) => RANK[a[0]] - RANK[b[0]]).forEach(q => out.push({ q }));
+  shuffle(l.tip || []).slice(0, 1).forEach(tp => out.splice(2, 0, { tf: tp, show: Math.random() < .5 }));
+  return out;
+}
+function gChallenge() {
+  const l = R.g, qs = gQuestions(l); let k = 0; R.q = 0; R.qok = 0;
+  const d = $('.reader'); d.innerHTML = `<div class="rin"><div class="theend" style="padding-top:40px">${OWL('wow', 120)}<h1>وقت التحدي! 🎮</h1><p class="muted" style="margin:0">${AR(qs.length)} أسئلة. كل جواب صح = نجمة ⭐</p><div class="chip" id="starcount" style="font-size:20px">${I.star}<span class="num">0</span></div></div></div>`;
+  $$('.rdock').forEach(e => e.remove()); stopStory(); try { GA.pause(); } catch (e) { }
+  const step = () => { if (!R) return; if (k >= qs.length) return gFinish(); const n = qs[k++]; gAsk(l, n, k, qs.length, ok => { R.q++; if (ok) { R.qok++; G.stars++; save(); } const sc = $('#starcount .num'); if (sc) sc.textContent = R.qok; step(); }); };
+  setTimeout(step, 700);
+}
+const swapW = s => { const w = s.split(' '); if (w.length < 3) return null; const k = 1 + (Math.random() * (w.length - 2) | 0); [w[k - 1], w[k]] = [w[k], w[k - 1]]; const o = w.join(' '); return o === s ? null : o; };
+const capF = t => /^I\b|^I'/.test(t) || (GD?.caps || []).includes(t.replace(/[^A-Za-z']/g, '')) ? t : t[0].toLowerCase() + t.slice(1);
+function gAsk(l, n, k, total, done) {
+  const sc = document.createElement('div'); sc.className = 'scrim'; const p = document.createElement('div'); p.className = 'pop qpop';
+  let head = '', body = '', correct = null, opts = null, sayText = null, ans = '';
+  const q = n.q;
+  if (n.tf) { head = 'صح ولا غلط؟ 🤔'; const s = n.show ? n.tf[1] : n.tf[0]; body = `<div class="bigsent en">${esc(s)}</div><div class="tfb"><button class="qo tfx" type="button" data-tf="0">✗ غلط</button><button class="qo tfv" type="button" data-tf="1">✓ صح</button></div>`; sayText = n.tf[1]; ans = `<span class="en">${esc(n.tf[1])}</span>`; }
+  else if (n.cls) { const [w, key] = n.cls, cats = l.cls.cats; head = 'اسمع… أي صوت؟ 👂'; correct = cats.find(c => c[0] === key)?.[1]; opts = cats.map(c => c[1]); sayText = w; body = `<div class="row" style="justify-content:center"><button class="say" type="button" id="qs">${I.spk}</button></div><div class="bigsent en">${esc(w)}</div>`; ans = rich(correct); }
+  else if (n.sil) { const [w, sil] = n.sil; head = 'أي حرف ساكت وما بينلفظ؟ 🤫'; sayText = w; body = `<div class="row" style="justify-content:center"><button class="say" type="button" id="qs">${I.spk}</button></div><div class="letters en">${w.split('').map((c, j) => `<button class="lt" type="button" data-c="${j}">${esc(c)}</button>`).join('')}</div>`; ans = `<span class="en">${esc(sil.join(', '))}</span>`; }
+  else if (n.stress) { const [w, syl] = n.stress, parts = syl.split('-'); head = 'وين الضغطة؟ اضغط على المقطع القوي 💥'; sayText = w; body = `<div class="row" style="justify-content:center"><button class="say" type="button" id="qs">${I.spk}</button></div><div class="letters en">${parts.map((x, j) => `<button class="lt wide" type="button" data-sy="${j}">${esc(x.toLowerCase())}</button>`).join('')}</div>`; ans = `<span class="en">${esc(syl)}</span>`; }
+  else if (q[0] === 'mc' || q[0] === 'gap') {
+    correct = q[2]; sayText = q[1].replace('___', correct).replace(/\s*\([^)]*\)/, '');
+    if (q[0] === 'mc') opts = shuffle(q.slice(2)); else { const mine = new Set(q.slice(2).map(norm)), pool = []; l.q.forEach(o => { if (o !== q && (o[0] === 'gap' || o[0] === 'mc')) pool.push(...o.slice(2)); }); opts = shuffle([correct, ...[...new Set(shuffle(pool).filter(x => !mine.has(norm(x)) && x.split(' ').length <= 3))].slice(0, 2)]); }
+    head = 'شو الكلمة الناقصة؟ 🧩'; body = `<div class="bigsent en">${esc(q[1]).replace(/\(([^)]*)\)/, '<small class="muted">($1)</small>').replace('___', '<span class="gap">?</span>')}</div>`; ans = `<span class="en">${esc(sayText)}</span>`;
+  } else if (q[0] === 'pick') { correct = q[1]; opts = shuffle(q.slice(1)); head = 'أي جملة صح؟ ✅'; sayText = correct; ans = `<span class="en">${esc(correct)}</span>`; }
+  else if (q[0] === 'fix') { correct = q[2]; opts = shuffle([...new Set([correct, q[1], swapW(correct)].filter(Boolean))]); head = 'في غلطة! شو التصحيح؟ 🕵️'; body = `<div class="bigsent en wrongs">${esc(q[1])}</div>`; sayText = correct; ans = `<span class="en">${esc(correct)}</span>`; }
+  else if (q[0] === 'rule') { correct = q[2]; opts = shuffle(q.slice(2)); head = 'سؤال بوبو 🦉'; body = `<div class="bigsent" dir="auto" style="font-size:19px">${rich(q[1])}</div>`; ans = rich(correct); if (isLatin(correct)) sayText = correct; }
+  else if (q[0] === 'ord' || q[0] === 'tr') {
+    const answers = q[0] === 'tr' ? q.slice(2) : [q[1]], toks = answers[0].split(/\s+/).map((t, j) => j ? t : capF(t));
+    let extra = []; if (q[0] === 'tr') { const have = new Set(toks.map(norm)); extra = shuffle([...new Set(l.q.flatMap(o => o[0] === 'ord' ? o[1].split(/\s+/) : []).map(t => t.replace(/[.,!?]+$/, '')).filter(t => t && !have.has(norm(t)) && !/^[A-Z]/.test(t)))]).slice(0, 2); }
+    head = q[0] === 'tr' ? 'ترجم بالقطع 🧱' : 'رتّب الجملة 🧱'; sayText = answers[0]; ans = `<span class="en">${esc(answers[0])}</span>`;
+    body = `${q[0] === 'tr' ? `<div class="bigsent" style="font-size:20px">${esc(q[1])}</div>` : ''}<div class="sline en" id="sl"></div><div class="gbank en" id="gb">${shuffle([...toks, ...extra].map((t, j) => ({ t, j }))).map(o => `<button class="gt" type="button" data-t="${o.j}">${esc(o.t)}</button>`).join('')}</div>${q[0] === 'tr' ? '<button class="btn sm" type="button" id="chk" style="justify-self:center">تحقّق ✓</button>' : ''}`;
+    n._ord = { toks: [...toks, ...extra], need: toks.length, answers, tr: q[0] === 'tr' };
+  }
+  p.innerHTML = `<div class="in"><div class="qhead">${OWL('happy', 64)}<div class="bubble sm">${head}</div><span class="qn num">${AR(k)}/${AR(total)}</span></div>${body}${opts ? `<div class="qopts">${opts.map((o, j) => `<button class="qo ${isLatin(o) ? 'en' : ''}" type="button" data-k="${j}" dir="auto">${rich(o)}</button>`).join('')}</div>` : ''}</div>`;
+  document.body.append(sc, p);
+  const end = ok => { sc.remove(); p.remove(); done(ok); };
+  const qs = $('#qs', p); if (qs) { qs.onclick = () => playG(l, sayText); setTimeout(() => playG(l, sayText), 300); }
+  let fin = false;
+  const result = (ok, el) => {
+    if (fin) return; fin = true; if (ok) { SFX.ok(); SFX.star(); flyStar(el); } else SFX.no();
+    if (sayText) setTimeout(() => playG(l, sayText), 250);
+    const f = document.createElement('div'); f.className = 'qfb ' + (ok ? 'ok' : 'no');
+    f.innerHTML = `${OWL(ok ? 'wow' : 'sad', 54)}<div class="grow"><b>${ok ? rnd(['برافو يا بطل!', 'شاطر!', 'صح عليك!', 'يا سلام!']) : rnd(['قريبة! ولا يهمك', 'بتصير معك!'])}</b>${ok ? '' : `<div>الصح: ${ans}</div>`}${n.tf ? `<div class="muted" style="font-size:14px">${rich(n.tf[2])}</div>` : ''}</div><button class="btn sm" type="button" id="qc">كمّل ←</button>`;
+    $('.in', p).appendChild(f); $('#qc', f).onclick = () => end(ok); if (ok && !n.tf) setTimeout(() => p.isConnected && end(ok), 1800);
+  };
+  $$('.qo[data-k]', p).forEach(b => b.onclick = () => { if (fin) return; const o = opts[+b.dataset.k], ok = o === correct; $$('.qo[data-k]', p).forEach(x => { x.disabled = true; if (opts[+x.dataset.k] === correct) x.classList.add('ok'); }); if (!ok) b.classList.add('no'); result(ok, b); });
+  $$('[data-tf]', p).forEach(b => b.onclick = () => { const ok = (b.dataset.tf === '1') === !!n.show; b.classList.add(ok ? 'ok' : 'no'); result(ok, b); });
+  $$('[data-c]', p).forEach(b => b.onclick = () => { const w = n.sil[0], ok = n.sil[1].map(x => x.toLowerCase()).includes(w[+b.dataset.c].toLowerCase()); b.classList.add(ok ? 'ok' : 'no'); result(ok, b); });
+  $$('[data-sy]', p).forEach(b => b.onclick = () => { const parts = n.stress[1].split('-'), hit = parts.findIndex(x => /[A-Z]/.test(x) && x === x.toUpperCase()), ok = +b.dataset.sy === hit; b.classList.add(ok ? 'ok' : 'no'); const r = $(`[data-sy="${hit}"]`, p); if (r) { r.textContent = parts[hit]; r.classList.add('ok'); } result(ok, b); });
+  if (n._ord) {
+    const O = n._ord, placed = [];
+    const paint = () => { $('#sl', p).innerHTML = placed.map((j, i) => `<button class="gt on" type="button" data-p="${i}">${esc(O.toks[j])}</button>`).join('') || '<span class="muted" style="font-family:var(--ar);font-size:15px">اضغط على القطع بالترتيب…</span>'; $$('#gb .gt', p).forEach(b => b.classList.toggle('used', placed.includes(+b.dataset.t))); $$('#sl .gt', p).forEach(b => b.onclick = () => { if (fin) return; placed.splice(+b.dataset.p, 1); paint(); }); };
+    const check = () => { const got = norm(placed.map(j => O.toks[j]).join(' ')), ok = O.answers.some(a => norm(a) === got); $('#sl', p).classList.add(ok ? 'good' : 'shake'); result(ok, $('#sl', p)); };
+    $$('#gb .gt', p).forEach(b => b.onclick = () => { if (fin || placed.includes(+b.dataset.t)) return; placed.push(+b.dataset.t); SFX.pop(); paint(); if (!O.tr && placed.length === O.need) check(); });
+    const ck = $('#chk', p); if (ck) ck.onclick = () => { if (!fin && placed.length) check(); };
+    paint();
+  }
+}
+function gFinish() {
+  const l = R.g, prev = G.gram[l.id], stars = R.q ? (R.qok / R.q >= .9 ? 3 : R.qok / R.q >= .6 ? 2 : 1) : 3;
+  G.gram[l.id] = { best: Math.max(prev?.best || 0, stars), done: 1 };
+  let sticker = null; if (!prev) { const left = STICKERS.filter(e => !G.stk.includes(e)); sticker = left.length ? rnd(left) : null; if (sticker) G.stk.push(sticker); G.stars += 5; }
+  save();
+  const nx = GL[l.ix + 1], d = $('.reader');
+  d.innerHTML = `<div class="rin"><div class="theend">${OWL('wow', 120)}<h1>تعلّمت قاعدة جديدة! 🎉</h1><div class="muted">${esc(l.ar)}</div>
+    <div class="bigstars">${[0, 1, 2].map(k => `<span class="${k < stars ? 'on' : ''}">${I.star}</span>`).join('')}</div>
+    <p class="muted" style="margin:0">جاوبت ${AR(R.qok)} من ${AR(R.q)}</p>
+    ${sticker ? `<div class="newstk"><span>${sticker}</span><b>ملصق جديد لألبومك!</b></div>` : ''}
+    <div style="display:grid;gap:12px;width:100%">${nx ? `<button class="btn" type="button" id="gnx">الدرس الجاي: ${esc(nx.ar)} ←</button>` : ''}<button class="btn ghost" type="button" id="gag">العب التحدي كمان</button><button class="btn ghost" type="button" id="glib">للمكتبة</button></div></div></div>`;
+  SFX.win(); confetti();
+  const gnx = $('#gnx'); if (gnx) gnx.onclick = () => openGram(nx);
+  $('#gag').onclick = () => { R.p = 0; gChallenge(); };
+  $('#glib').onclick = closeBook;
+}
+
+/* ---------- Bubu's playground ---------- */
+function myWordList() { const out = []; Object.keys(G.words).forEach(k => { const i = k.indexOf(':'), s = STORY.get(k.slice(0, i)); const v = s && vocab(s).find(x => x.k === k.slice(i + 1)); if (v) out.push(v); }); return out; }
+function playPool(needEmo) {
+  let p = myWordList().filter(v => !needEmo || v.emo);
+  if (p.length < 8) { const sh = SHELVES.find(s => s.k === 'A') || SHELVES[0]; p = p.concat(sh.list.slice(0, 6).flatMap(s => vocab(s)).filter(v => !needEmo || v.emo)); }
+  const seen = new Set(); return p.filter(v => !seen.has(v.k) && seen.add(v.k));
+}
+function viewPlay() {
+  G.best = G.best || {};
+  const b = k => G.best[k] ? `<span class="best">أفضل: ${AR(G.best[k])}</span>` : '';
+  shell(`<section class="hello" style="gap:6px">${OWL('wow', 96)}<div class="bubble sm">أهلا بملعبي! اختار لعبة 🎈</div></section>
+    <div class="games">
+      <button class="game c0" type="button" data-g="balloon">${b('balloon')}<span class="gi">🎈</span><b>البالونات</b><small>اسمع الكلمة وفقّع البالون الصح</small></button>
+      <button class="game c1" type="button" data-g="mem">${b('mem')}<span class="gi">🃏</span><b>الذاكرة</b><small>لاقي كل صورة مع كلمتها</small></button>
+      <button class="game c2" type="button" data-g="tf">${b('tf')}<span class="gi">🕵️</span><b>صح ولا غلط</b><small>جمل من دروس القواعد</small></button>
+      <button class="game c3" type="button" data-g="fish">${b('fish')}<span class="gi">🎣</span><b>صيد الكلمات</b><small>اصطاد السمكة اللي فيها المعنى الصح</small></button>
+    </div>`);
+  $$('[data-g]').forEach(x => x.onclick = () => ({ balloon: gameBalloon, mem: gameMem, tf: gameTF, fish: gameFish }[x.dataset.g])());
+}
+function arena(cls, inner) {
+  document.body.style.overflow = 'hidden'; let d = $('.reader'); if (!d) { d = document.createElement('div'); document.body.appendChild(d); }
+  d.className = 'reader kid ' + cls; d.innerHTML = `<div class="rin"><div class="rtop"><button class="x" type="button" id="close" aria-label="اطلع">${I.close}</button><div class="grow"><div class="pbar"><i id="gbar" style="width:0%"></i></div></div><span class="chip" id="starcount">${I.star}<span class="num" id="gsc">0</span></span></div>${inner}</div>`;
+  $('#close').onclick = () => { R = null; closeBook(); }; return d;
+}
+function gameOver(key, score, total) {
+  G.best = G.best || {}; const best = score > (G.best[key] || 0); G.best[key] = Math.max(G.best[key] || 0, score); G.stars += score; save();
+  const stars = score >= total * .9 ? 3 : score >= total * .6 ? 2 : 1;
+  $('.reader .rin').innerHTML = `<div class="theend">${OWL('wow', 120)}<h1>${stars === 3 ? 'إنت بطل! 🏆' : 'شغل حلو! 🎉'}</h1><div class="bigstars">${[0, 1, 2].map(k => `<span class="${k < stars ? 'on' : ''}">${I.star}</span>`).join('')}</div><p class="muted" style="margin:0">${AR(score)} من ${AR(total)}${best ? ' · رقم قياسي جديد!' : ''}</p>
+    <div style="display:grid;gap:12px;width:100%"><button class="btn" type="button" id="again">العب كمان</button><button class="btn ghost" type="button" id="back">للملعب</button></div></div>`;
+  SFX.win(); confetti(); $('#again').onclick = () => ({ balloon: gameBalloon, mem: gameMem, tf: gameTF, fish: gameFish }[key])(); $('#back').onclick = () => { R = null; closeBook(); };
+}
+function gameBalloon() {
+  const pool = shuffle(playPool(false)), N = Math.min(10, pool.length); let k = 0, sc = 0;
+  arena('c0', `<div class="ask2">اسمع… وفقّع البالون الصح! 🎈</div><div class="row" style="justify-content:center"><button class="say" type="button" id="hear">${I.spk}</button></div><div class="skyb" id="sky"></div>`);
+  const cols = ['var(--berry)', 'var(--blue)', 'var(--orange)', 'var(--teal)'];
+  const round = () => {
+    if (k >= N) return gameOver('balloon', sc, N); const v = pool[k++]; $('#gbar').style.width = (100 * k / N) + '%';
+    const opts = shuffle([v, ...shuffle(pool.filter(x => x.k !== v.k)).slice(0, 2)]); let done = false;
+    $('#sky').innerHTML = opts.map((o, j) => `<button class="balloon" type="button" data-j="${j}" style="right:${[4, 36, 68][j]}%;top:${[26, 10, 30][j]}%;--bc:${cols[(k + j) % 4]};animation-delay:${-j}s">${o.emo ? `<span class="be">${o.emo}</span>` : ''}<span class="en">${esc(o.w)}</span></button>`).join('');
+    $('#hear').onclick = () => sayWord(v.w); setTimeout(() => sayWord(v.w), 300);
+    $$('#sky .balloon').forEach(b => b.onclick = () => { if (done) return; done = true; const ok = opts[+b.dataset.j] === v;
+      if (ok) { sc++; $('#gsc').textContent = sc; b.classList.add('pop'); SFX.pop(); SFX.ok(); flyStar(b); } else { b.classList.add('no'); SFX.no(); toast(`${v.emo || ''} ${v.w} = ${v.m}`); }
+      setTimeout(round, ok ? 700 : 1500); });
+  };
+  round();
+}
+function gameMem() {
+  const pool = shuffle(playPool(true)).slice(0, 6); if (pool.length < 3) return toast('اقرأ كتاب أول عشان تفتح هاللعبة');
+  const cards = shuffle([...pool.map(v => ({ v, s: 'e' })), ...pool.map(v => ({ v, s: 'p' }))]); let up = [], moves = 0, got = 0, lock = false;
+  arena('c1', `<div class="ask2">لاقي كل صورة مع كلمتها 🃏</div><div class="memg">${cards.map((c, j) => `<button class="mcard" type="button" data-c="${j}"><span class="f">?</span><span class="b ${c.s === 'e' ? 'en' : 'pic'}">${c.s === 'e' ? esc(c.v.w) : c.v.emo}</span></button>`).join('')}</div>`);
+  $$('.mcard').forEach(b => b.onclick = () => { if (lock || b.classList.contains('up')) return; const c = cards[+b.dataset.c]; b.classList.add('up'); SFX.pop(); if (c.s === 'e') sayWord(c.v.w); up.push([b, c]); if (up.length < 2) return;
+    moves++; const [[b1, c1], [b2, c2]] = up; up = [];
+    if (c1.v === c2.v && c1.s !== c2.s) { got++; SFX.ok(); [b1, b2].forEach(x => x.classList.add('got')); $('#gsc').textContent = got; $('#gbar').style.width = (100 * got / pool.length) + '%'; if (got === pool.length) setTimeout(() => gameOver('mem', Math.max(1, pool.length * 2 - Math.max(0, moves - pool.length)), pool.length * 2), 600); }
+    else { lock = true; setTimeout(() => { b1.classList.remove('up'); b2.classList.remove('up'); lock = false; }, 950); } });
+}
+function gameTF() {
+  const done = GL.filter(l => G.gram[l.id]), ls = done.length ? done : GL.slice(0, 4), items = [];
+  ls.forEach(l => { (l.tip || []).forEach(([w, r, n]) => { items.push({ s: w, ok: false, r, l }); items.push({ s: r, ok: true, r, l }); }); (l.q || []).forEach(q => { if (q[0] === 'pick') { items.push({ s: q[1], ok: true, r: q[1], l }); items.push({ s: q[2], ok: false, r: q[1], l }); } }); });
+  if (items.length < 4) return toast('افتح درس من رفّ القواعد أول');
+  const qs = shuffle(items).slice(0, 10); let k = 0, sc = 0;
+  arena('c2', `<div class="ask2">بوبو حكى جملة… صح ولا فيها غلطة؟ 🕵️</div><div class="bigsent en" id="tfs" style="min-height:120px;display:grid;place-items:center"></div><div class="tfb"><button class="qo tfx" type="button" id="no">✗ غلط</button><button class="qo tfv" type="button" id="yes">✓ صح</button></div>`);
+  const round = () => { if (k >= qs.length) return gameOver('tf', sc, qs.length); const it = qs[k++]; $('#gbar').style.width = (100 * k / qs.length) + '%'; $('#tfs').textContent = it.s; $('#tfs').classList.remove('popin'); void $('#tfs').offsetWidth; $('#tfs').classList.add('popin'); let done = false;
+    const ans = yes => { if (done) return; done = true; const ok = yes === it.ok; if (ok) { sc++; $('#gsc').textContent = sc; SFX.ok(); } else { SFX.no(); toast('الصح: ' + it.r); } setTimeout(round, ok ? 600 : 1700); };
+    $('#yes').onclick = () => ans(true); $('#no').onclick = () => ans(false); };
+  round();
+}
+function gameFish() {
+  const pool = shuffle(playPool(false)), N = Math.min(10, pool.length); let k = 0, sc = 0;
+  arena('c3', `<div class="ask2" id="fq"></div><div class="pondf" id="pond"></div>`);
+  const round = () => {
+    if (k >= N) return gameOver('fish', sc, N); const v = pool[k++]; $('#gbar').style.width = (100 * k / N) + '%';
+    $('#fq').innerHTML = `اصطاد: <b class="en" style="color:var(--blue)">${esc(v.w)}</b> 🎣 <small class="muted">(اختار السمكة اللي فيها معناها)</small>`; sayWord(v.w);
+    const opts = shuffle([v, ...shuffle(pool.filter(x => noTash(x.m) !== noTash(v.m))).slice(0, 2)]); let done = false;
+    $('#pond').innerHTML = opts.map((o, j) => `<button class="fish f${j}" type="button" data-j="${j}"><span class="fb">🐟</span><span class="fm">${esc(o.m)}</span></button>`).join('');
+    $$('#pond .fish').forEach(b => b.onclick = () => { if (done) return; done = true; const ok = opts[+b.dataset.j] === v;
+      if (ok) { sc++; $('#gsc').textContent = sc; b.classList.add('caught'); SFX.ok(); flyStar(b); } else { b.classList.add('no'); SFX.no(); toast(`${v.w} = ${v.m}`); }
+      setTimeout(round, ok ? 800 : 1500); });
+  };
+  round();
 }
 
 render();
