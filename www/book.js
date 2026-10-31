@@ -185,11 +185,13 @@ function viewLib() {
       <div class="fbook"><div class="fcover"><span>${cover(feat)}</span></div><div class="grow"><div class="k">${cont ? 'كمّل القراءة' : 'القصة الجاية'} · ${AR(feat.ix + 1)}</div><h1>${esc(noTash(feat.ar))}</h1><div class="en">${esc(feat.en)}</div>
         ${rs?.page ? `<div class="pbar"><i style="width:${Math.round(100 * rs.page / fp)}%"></i></div>` : ''}</div></div>
       <button class="btn big" type="button" data-open="${feat.id}">${I.play} ${cont ? 'كمّل من الصفحة ' + AR(rs.page + 1) : 'افتح الكتاب'}</button>
+      <button class="btn ghost" type="button" data-words="${feat.id}">🎧 اسمع كلمات القصة بس</button>
     </section>
     <section class="sec"><div class="sec-h"><h2>${sh.icon} ${sh.name}</h2><span class="muted num">${AR(sh.list.filter(s => G.read[s.id]?.done).length)}/${AR(sh.list.length)}</span></div>
       <div class="books">${sh.list.map(s => { const r = G.read[s.id]; return `<button class="book c${s.ix % 5} ${r?.done ? 'done' : ''} ${s === nx ? 'nx' : ''}" type="button" data-open="${s.id}"><span class="spine"></span><span class="be">${cover(s)}</span><span class="bt">${esc(noTash(s.ar))}</span>${r?.done ? `<span class="ribbon">${'★'.repeat(r.best || 1)}</span>` : r?.page ? `<span class="ribbon prog">${AR(Math.round(100 * r.page / pages(s).length))}٪</span>` : s === nx ? '<span class="ribbon new">جديدة</span>' : ''}</button>`; }).join('')}</div></section>`);
   $$('[data-s]').forEach(b => b.onclick = () => { G.shelf = b.dataset.s; save(); SFX.page(); render(); });
   $$('[data-open]').forEach(b => b.onclick = () => openBook(STORY.get(b.dataset.open)));
+  $$('[data-words]').forEach(b => b.onclick = () => storyWords(STORY.get(b.dataset.words)));
 }
 
 /* ---------- the reader ---------- */
@@ -220,7 +222,7 @@ function drawPage() {
   d.innerHTML = `<div class="rin">
     <div class="rtop"><button class="x" type="button" id="close" aria-label="سكّر الكتاب">${I.close}</button>
       <div class="grow" style="min-width:0"><b class="rtitle">${esc(noTash(s.ar))}</b><div class="pbar"><i style="width:${Math.round(100 * (R.p + 1) / all.length)}%"></i></div></div>
-      <span class="chip" id="starcount">${I.star}<span class="num">${R.qok}</span></span></div>
+      <button class="x" type="button" id="wordsbtn" aria-label="كلمات القصة" title="كلمات القصة">🎧</button><span class="chip" id="starcount">${I.star}<span class="num">${R.qok}</span></span></div>
     <div class="pagewrap" id="pw">${sceneHtml(pg)}
       <div class="text">
         <p class="en sent" id="sent">${pg.tk.map((t, k) => `<span class="t ${t.v ? 'v' : ''}" data-k="${k}">${esc(t.t)}</span>`).join(' ')}</p>
@@ -236,6 +238,7 @@ function drawPage() {
     <button class="rbtn" type="button" id="next" aria-label="الصفحة التالية">${I.next}</button>
   </div></div>`;
   $('#close').onclick = () => { stopStory(); closeBook(); };
+  $('#wordsbtn').onclick = () => { stopStory(); R.playing = false; R.auto = false; drawDock(); storyWords(s, true); };
   $('#prev').onclick = () => turn(-1);
   $('#next').onclick = () => turn(1);
   $('#playp').onclick = () => { if (R.playing) { R.auto = false; stopStory(); R.playing = false; drawDock(); } else readPage(); };
@@ -664,6 +667,14 @@ function gameFish() {
       setTimeout(round, ok ? 800 : 1500); });
   };
   round();
+}
+
+/* ---------- story words player ---------- */
+function storyWords(s, inReader) {
+  if (!window.WordPlayer || !s) return;
+  [...new Set(vocab(s).map(v => AU.e[enKey(v.w)]).filter(Boolean).map(id => 'e' + id[0]))].forEach(loadPack);
+  window.WordPlayer.open({ title: noTash(s.ar) + ' · ' + s.en, items: vocab(s).map(v => ({ w: v.w, m: v.m, emo: v.emo, p: v.p })),
+    sayEn: (w, rate) => sayWord(w, rate), stop: () => { sayTok++; try { wa.pause(); } catch (e) { } }, keepOverflow: !!inReader });
 }
 
 /* ---------- dictionary ---------- */
