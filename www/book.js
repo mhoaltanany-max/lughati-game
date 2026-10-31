@@ -103,10 +103,11 @@ const KEY = 'lughati-book.v1';
 const DEF = { read: {}, words: {}, stk: [], stars: 0, shelf: null, sfx: true, srate: 1, tr: true, last: null, days: {}, streak: 0, lastDay: 0 };
 let G = Object.assign({}, DEF);
 try { const r = JSON.parse(localStorage.getItem(KEY) || 'null'); if (r) G = Object.assign({}, DEF, r); } catch (e) { }
+delete G.read['[object Object]'];
 let saveT = 0; const save = () => { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(G)); } catch (e) { } }, 150); };
 const DAY = () => { const d = new Date(); return Math.floor((d - d.getTimezoneOffset() * 6e4) / 864e5); };
 function touchDay() { const d = DAY(); if (G.lastDay !== d) { G.streak = G.lastDay === d - 1 ? G.streak + 1 : 1; G.lastDay = d; } }
-const RS = id => G.read[id] || (G.read[id] = { page: 0, best: 0, done: 0 });
+const RS = x => { const id = typeof x === 'string' ? x : x.id; return G.read[id] || (G.read[id] = { page: 0, best: 0, done: 0 }); };
 const wid = (s, v) => s.id + ':' + v.k;
 function meetWord(s, v) { const k = wid(s, v); if (!G.words[k]) { G.words[k] = { t: Date.now(), ok: 0, bad: 0 }; save(); } }
 const STICKERS = '🦄🐳🦋🌈🍩🚀🐙🦖🍉🎈🐝🌻🍭🐢🦜🎠🧁🐬🍦🦒🐞🌟🎡🐨🦔🍓🐠🪁🦩🍪🐣🌵🦕🐿️🍒🎪🐌🦀🍕🛸'.match(/\p{Extended_Pictographic}(️)?/gu);
@@ -161,7 +162,8 @@ function shell(inner) {
     <nav class="tabs"><div class="in">${TABS.map(([k, n, ic]) => `<button class="tab" type="button" data-tab="${k}" ${TAB === k ? 'aria-current="page"' : ''}><span class="ti">${ic}</span>${n}</button>`).join('')}</div></nav>`;
   $$('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; render(); scrollTo(0, 0); });
 }
-function render() { if (!G.shelf) return welcome(); ({ lib: viewLib, play: viewPlay, words: viewWords, album: viewAlbum }[TAB] || viewLib)(); }
+function render() { try { renderInner(); } catch (e) { console.error(e); if (!render.retry) { render.retry = 1; G.last = null; if (!SBY[G.shelf]) G.shelf = null; save(); try { renderInner(); } catch (e2) { console.error(e2); } render.retry = 0; } } }
+function renderInner() { if (!G.shelf) return welcome(); ({ lib: viewLib, play: viewPlay, words: viewWords, album: viewAlbum }[TAB] || viewLib)(); }
 function welcome() {
   document.body.classList.add('kid');
   app.innerHTML = `<main class="wrap" style="padding-top:22px"><section class="hello">${OWL('happy', 130)}<div class="bubble">أهلاً! أنا <b>بوبو</b> 🦉<br>عندي مكتبة مليانة قصص بالإنجليزي. أي رفّ بدك نفتح؟</div></section>
@@ -175,7 +177,7 @@ const shelfNav = sh => `<section class="shelfnav">${SHELVES.map((s, k) => `<butt
 function viewLib() {
   if (shelf().gram) return viewGramLib();
   const sh = shelf(), cont = G.last && STORY.get(G.last) && !G.read[G.last]?.done ? STORY.get(G.last) : null, nx = nextStory(sh);
-  const feat = cont || nx, fp = pages(feat).length, rs = G.read[feat.id];
+  const feat = cont || nx, fp = pages(feat).length, rs = G.read[feat.id] || { page: 0 };
   shell(`${shelfNav(sh)}
     <section class="feature c${feat.ix % 5}">
       ${sh.kid ? `<div class="fowl">${OWL('happy', 74)}<div class="bubble sm">${cont ? 'نكمّل القصة؟ 📖' : 'جاهز لقصة جديدة؟ ✨'}</div></div>` : ''}
@@ -209,6 +211,7 @@ function sceneHtml(pg) {
     ${R.kid ? `<span class="peek">${OWL('happy', 64)}</span>` : ''}</div>`;
 }
 function drawPage() {
+  if (!R || !R.s || !$('.reader')) return;
   const { s, pg: all } = R, pg = all[R.p], d = $('.reader'); const rs = RS(s);
   rs.page = Math.max(rs.page || 0, R.p); save();
   pg.words.forEach(v => meetWord(s, v));
@@ -283,7 +286,7 @@ function turn(dir) {
     if (R.p >= R.pg.length - 1) return finishBook();
     R.p++;
   } else { if (R.p === 0) return; R.p--; }
-  SFX.page(); const pw = $('#pw'); if (pw && !reduce) { pw.classList.add(dir > 0 ? 'flipL' : 'flipR'); setTimeout(drawPage, 180); } else drawPage();
+  SFX.page(); const pw = $('#pw'); if (pw && !reduce) { pw.classList.add(dir > 0 ? 'flipL' : 'flipR'); setTimeout(() => R && drawPage(), 180); } else drawPage();
 }
 
 /* ---------- Bubu's questions, about the pages just read ---------- */
@@ -460,6 +463,7 @@ function talkHtml(blocks) {
   return h + (ul ? '</ul>' : '');
 }
 function drawG() {
+  if (!R || !R.g || !$('.reader')) return;
   const { g: l, pg: all } = R, pg = all[R.p], d = $('.reader');
   d.className = 'reader kid c' + (l.ix % 5);
   let body = '', audio = null;

@@ -55,7 +55,9 @@ jobs:
           cd build/android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon -q
-          cp app/build/outputs/apk/debug/app-debug.apk ../../lughati-book.apk
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          $BT/apksigner sign --ks ../../signing/release.keystore --ks-pass pass:lughati-book --key-pass pass:lughati-book --ks-key-alias lughatibook --out ../../lughati-book.apk app/build/outputs/apk/debug/app-debug.apk
+          $BT/apksigner verify --print-certs ../../lughati-book.apk | head -2
           ls -la ../../lughati-book.apk
 
       - name: Publish
