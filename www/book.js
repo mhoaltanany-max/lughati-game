@@ -33,6 +33,7 @@ const I = {
   turtle: P('<path d="M4 15c0-4 3.6-7 8-7s8 3 8 7z"/><path d="M20 13.5h1.5a1.5 1.5 0 0 0 0-3H20M6 15l-1 3M18 15l1 3M9 8.5l1.5 6.5M15 8.5 13.5 15"/>'),
   back: P('<path d="M20 12H4M10 6l-6 6 6 6"/>'),
   joy: P('<rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7 10.5v4M5 12.5h4"/><circle cx="15.5" cy="11.5" r=".6" fill="currentColor"/><circle cx="17.5" cy="13.5" r=".6" fill="currentColor"/>'),
+  search: P('<circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/>'),
   check: P('<path d="m4.5 12.5 5 5L19.5 7"/>'),
 };
 const OWL = (mood = 'happy', size = 92) => `<svg class="owl ${mood}" width="${size}" height="${size}" viewBox="0 0 120 120" aria-hidden="true">
@@ -153,7 +154,7 @@ function flyStar(from) { if (reduce) return; const r = from.getBoundingClientRec
 
 /* ---------- shell ---------- */
 let TAB = 'lib';
-const TABS = [['lib', 'المكتبة', I.shelf], ['play', 'ملعب بوبو', I.joy], ['words', 'كلماتي', I.box], ['album', 'ملصقاتي', I.sticker]];
+const TABS = [['lib', 'المكتبة', I.shelf], ['play', 'ملعب بوبو', I.joy], ['dict', 'القاموس', I.search], ['words', 'كلماتي', I.box], ['album', 'ملصقاتي', I.sticker]];
 function shell(inner) {
   document.body.classList.toggle('kid', !!shelf().kid);
   app.innerHTML = `<header class="top"><div class="in"><span class="brand">${OWL('happy', 44)}<b>لُغتي</b></span><span class="grow"></span>
@@ -163,7 +164,7 @@ function shell(inner) {
   $$('[data-tab]').forEach(b => b.onclick = () => { TAB = b.dataset.tab; render(); scrollTo(0, 0); });
 }
 function render() { try { renderInner(); } catch (e) { console.error(e); if (!render.retry) { render.retry = 1; G.last = null; if (!SBY[G.shelf]) G.shelf = null; save(); try { renderInner(); } catch (e2) { console.error(e2); } render.retry = 0; } } }
-function renderInner() { if (!G.shelf) return welcome(); ({ lib: viewLib, play: viewPlay, words: viewWords, album: viewAlbum }[TAB] || viewLib)(); }
+function renderInner() { if (!G.shelf) return welcome(); ({ lib: viewLib, play: viewPlay, dict: viewDict, words: viewWords, album: viewAlbum }[TAB] || viewLib)(); }
 function welcome() {
   document.body.classList.add('kid');
   app.innerHTML = `<main class="wrap" style="padding-top:22px"><section class="hello">${OWL('happy', 130)}<div class="bubble">أهلاً! أنا <b>بوبو</b> 🦉<br>عندي مكتبة مليانة قصص بالإنجليزي. أي رفّ بدك نفتح؟</div></section>
@@ -664,6 +665,19 @@ function gameFish() {
   };
   round();
 }
+
+/* ---------- dictionary ---------- */
+const DSRC = {
+  entries: () => {
+    const seen = new Set(), out = [];
+    ['A', 'B', 'C'].forEach(k => (D.wl?.[k] || []).forEach(r => { const key = norm(r[0]); if (!key || seen.has(key)) return; seen.add(key); out.push({ w: r[0], p: r[1], m: r[2], forms: [[r[0], r[2]], ...(r[3] || []).map(f => [f[0], f[1]])] }); }));
+    (D.fam || []).forEach(f => f.w.forEach(r => { const key = norm(r[0]); if (!key || seen.has(key)) return; seen.add(key); out.push({ w: r[0], p: r[1], m: r[2], forms: [[r[0], r[2]]] }); }));
+    return out;
+  },
+  fam: D.fam, ant: D.ant, syn: D.syn,
+  say: text => sayWord(text),
+};
+function viewDict() { shell('<div id="dxroot"></div>'); if (window.Dict) window.Dict.mount($('#dxroot'), DSRC); }
 
 render();
 })();
